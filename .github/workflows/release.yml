@@ -1,0 +1,40 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to package and upload
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - name: Package HACS repository
+        run: >
+          zip -r improved-tlocal-hacs.zip
+          custom_components
+          README.md
+          LICENSE
+          hacs.json
+          -x '*/__pycache__/*' '*.pyc' '.pytest_cache/*' '.ruff_cache/*'
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          overwrite_files: true
+          files: |
+            improved-tlocal-hacs.zip

@@ -1,0 +1,11 @@
+{
+  "domain": "improved_tlocal",
+  "name": "ImprovedTLocal",
+  "codeowners": ["@avm"],
+  "documentation": "https://github.com/Mesteriis/ha-improved-tlocal",
+  "issue_tracker": "https://github.com/Mesteriis/ha-improved-tlocal/issues",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "version": "0.1.0",
+  "homeassistant": "2026.3.0"
+}
