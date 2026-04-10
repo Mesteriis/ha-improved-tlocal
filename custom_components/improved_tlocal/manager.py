@@ -26,6 +26,7 @@ from .models import (
     utcnow_iso,
     verification_from_score,
 )
+from .runtime import PlugRuntimeRegistry
 from .storage import ImprovedTLocalStore
 from .templates import select_template_for_device, summarize_template
 
@@ -73,6 +74,7 @@ class ImprovedTLocalManager:
         """Initialize the manager."""
         self.hass = hass
         self.storage = ImprovedTLocalStore(hass)
+        self.runtime_registry = PlugRuntimeRegistry(hass, self)
 
     def normalize_options(self, raw: dict[str, Any]) -> DryRunOptions:
         """Normalize raw service-call options."""
@@ -240,6 +242,7 @@ class ImprovedTLocalManager:
                 "next_binding": next_binding.to_dict(),
             },
         )
+        await self.runtime_registry.async_sync_entities()
         return {
             "ok": True,
             "device_id": options.device_id,
@@ -248,6 +251,10 @@ class ImprovedTLocalManager:
             "previous_binding": current_binding.to_dict() if current_binding else None,
             "template": summarize_template(template),
         }
+
+    async def async_register_runtime_platform(self, platform: str, async_add_entities) -> None:
+        """Register one runtime platform callback."""
+        await self.runtime_registry.async_register_platform(platform, async_add_entities)
 
     @property
     def _device_providers(self) -> list[DeviceInventoryProvider]:

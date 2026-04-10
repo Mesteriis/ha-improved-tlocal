@@ -66,6 +66,34 @@ class FakeSystemHealthRegistration:
         self.callback = callback
 
 
+class FakeEntity:
+    """Minimal entity base class for runtime platform tests."""
+
+    _attr_unique_id: str | None = None
+    _attr_name: str | None = None
+    _attr_native_unit_of_measurement: str | None = None
+    _attr_should_poll = False
+
+    @property
+    def unique_id(self) -> str | None:
+        return self._attr_unique_id
+
+    @property
+    def name(self) -> str | None:
+        return self._attr_name
+
+    def async_write_ha_state(self) -> None:
+        """No-op state writer for tests."""
+
+
+class FakeSensorEntity(FakeEntity):
+    """Minimal sensor entity stub."""
+
+
+class FakeSwitchEntity(FakeEntity):
+    """Minimal switch entity stub."""
+
+
 class FakeServiceRegistry:
     """Capture service registrations for assertions."""
 
@@ -117,9 +145,12 @@ def _install_homeassistant_stubs() -> None:
     homeassistant = types.ModuleType("homeassistant")
     core = types.ModuleType("homeassistant.core")
     helpers = types.ModuleType("homeassistant.helpers")
+    helpers_discovery = types.ModuleType("homeassistant.helpers.discovery")
     components = types.ModuleType("homeassistant.components")
     components_diagnostics = types.ModuleType("homeassistant.components.diagnostics")
+    components_sensor = types.ModuleType("homeassistant.components.sensor")
     components_system_health = types.ModuleType("homeassistant.components.system_health")
+    components_switch = types.ModuleType("homeassistant.components.switch")
     helpers_storage = types.ModuleType("homeassistant.helpers.storage")
     helpers_typing = types.ModuleType("homeassistant.helpers.typing")
     helpers_cv = types.ModuleType("homeassistant.helpers.config_validation")
@@ -146,6 +177,13 @@ def _install_homeassistant_stubs() -> None:
 
     components_diagnostics.async_redact_data = _async_redact_data
     components_system_health.SystemHealthRegistration = FakeSystemHealthRegistration
+    components_sensor.SensorEntity = FakeSensorEntity
+    components_switch.SwitchEntity = FakeSwitchEntity
+
+    async def _async_load_platform(hass: Any, component: str, platform: str, discovered: Any, hass_config: Any) -> None:
+        return None
+
+    helpers_discovery.async_load_platform = _async_load_platform
 
     helpers_storage.Store = FakeStore
     helpers_typing.ConfigType = dict[str, Any]
@@ -155,18 +193,24 @@ def _install_homeassistant_stubs() -> None:
     homeassistant.core = core
     homeassistant.helpers = helpers
     homeassistant.components = components
+    helpers.discovery = helpers_discovery
     helpers.storage = helpers_storage
     helpers.typing = helpers_typing
     helpers.config_validation = helpers_cv
     components.diagnostics = components_diagnostics
+    components.sensor = components_sensor
     components.system_health = components_system_health
+    components.switch = components_switch
 
     sys.modules["homeassistant"] = homeassistant
     sys.modules["homeassistant.core"] = core
     sys.modules["homeassistant.helpers"] = helpers
+    sys.modules["homeassistant.helpers.discovery"] = helpers_discovery
     sys.modules["homeassistant.components"] = components
     sys.modules["homeassistant.components.diagnostics"] = components_diagnostics
+    sys.modules["homeassistant.components.sensor"] = components_sensor
     sys.modules["homeassistant.components.system_health"] = components_system_health
+    sys.modules["homeassistant.components.switch"] = components_switch
     sys.modules["homeassistant.helpers.storage"] = helpers_storage
     sys.modules["homeassistant.helpers.typing"] = helpers_typing
     sys.modules["homeassistant.helpers.config_validation"] = helpers_cv
