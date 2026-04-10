@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from .const import TEMPLATE_SMART_PLUG_BASIC, TEMPLATE_SMART_PLUG_POWER
+from .const import (
+    TEMPLATE_SMART_LIGHT_RGBCW,
+    TEMPLATE_SMART_PLUG_BASIC,
+    TEMPLATE_SMART_PLUG_POWER,
+)
 from .models import DeviceTemplate, InventoryDevice
 
 _TEMPLATES: dict[str, DeviceTemplate] = {
@@ -23,6 +27,14 @@ _TEMPLATES: dict[str, DeviceTemplate] = {
         required_dp_codes=["switch_1"],
         optional_dp_codes=["countdown_1"],
         platforms=["switch"],
+    ),
+    TEMPLATE_SMART_LIGHT_RGBCW: DeviceTemplate(
+        template_id=TEMPLATE_SMART_LIGHT_RGBCW,
+        family="smart_light",
+        description="Tuya RGB+CCT light with white, colour temperature, and RGB control",
+        required_dp_codes=["switch_led", "work_mode", "bright_value_v2", "temp_value_v2", "colour_data_v2"],
+        optional_dp_codes=["scene_data_v2", "countdown_1"],
+        platforms=["light"],
     ),
 }
 

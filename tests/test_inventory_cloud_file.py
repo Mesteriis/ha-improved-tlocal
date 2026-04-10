@@ -5,7 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 
-from custom_components.improved_tlocal.const import TEMPLATE_SMART_PLUG_BASIC, TEMPLATE_SMART_PLUG_POWER
+from custom_components.improved_tlocal.const import (
+    TEMPLATE_SMART_LIGHT_RGBCW,
+    TEMPLATE_SMART_PLUG_BASIC,
+    TEMPLATE_SMART_PLUG_POWER,
+)
 from custom_components.improved_tlocal.inventory.cloud_file import (
     CloudSnapshotInventoryProvider,
 )
@@ -65,3 +69,37 @@ def test_cloud_snapshot_provider_returns_empty_when_no_file_exists(hass) -> None
     devices = asyncio.run(provider.async_fetch_devices(hass))
 
     assert devices == []
+
+
+def test_cloud_snapshot_provider_infers_rgbcw_light_template(tmp_path, hass) -> None:
+    """RGB+CCT light snapshots should resolve to the light template candidate."""
+    snapshot_path = tmp_path / "devices_cloud_live.json"
+    snapshot_path.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "HallLED1",
+                    "id": "bf-light-1",
+                    "key": "light-secret",
+                    "mac": "E4AEE4539A0A",
+                    "category": "dj",
+                    "product_name": "Smart Light RGBCW",
+                    "model": "Smart Light RGBCW",
+                    "mapping": {
+                        "20": {"code": "switch_led", "type": "Boolean", "values": {}},
+                        "21": {"code": "work_mode", "type": "Enum", "values": {}},
+                        "22": {"code": "bright_value_v2", "type": "Integer", "values": {"min": 10, "max": 1000}},
+                        "23": {"code": "temp_value_v2", "type": "Integer", "values": {"min": 0, "max": 1000}},
+                        "24": {"code": "colour_data_v2", "type": "Json", "values": {}},
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    provider = CloudSnapshotInventoryProvider(paths=[snapshot_path])
+
+    devices = asyncio.run(provider.async_fetch_devices(hass))
+
+    assert len(devices) == 1
+    assert devices[0].template_candidates == [TEMPLATE_SMART_LIGHT_RGBCW]

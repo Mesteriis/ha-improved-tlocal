@@ -94,6 +94,19 @@ class FakeSwitchEntity(FakeEntity):
     """Minimal switch entity stub."""
 
 
+class FakeLightEntity(FakeEntity):
+    """Minimal light entity stub."""
+
+
+class FakeColorMode:
+    """Minimal color mode namespace."""
+
+    COLOR_TEMP = "color_temp"
+    RGB = "rgb"
+    BRIGHTNESS = "brightness"
+    ONOFF = "onoff"
+
+
 class FakeServiceRegistry:
     """Capture service registrations for assertions."""
 
@@ -148,6 +161,7 @@ def _install_homeassistant_stubs() -> None:
     helpers_discovery = types.ModuleType("homeassistant.helpers.discovery")
     components = types.ModuleType("homeassistant.components")
     components_diagnostics = types.ModuleType("homeassistant.components.diagnostics")
+    components_light = types.ModuleType("homeassistant.components.light")
     components_sensor = types.ModuleType("homeassistant.components.sensor")
     components_system_health = types.ModuleType("homeassistant.components.system_health")
     components_switch = types.ModuleType("homeassistant.components.switch")
@@ -176,6 +190,8 @@ def _install_homeassistant_stubs() -> None:
         return _redact(data)
 
     components_diagnostics.async_redact_data = _async_redact_data
+    components_light.ColorMode = FakeColorMode
+    components_light.LightEntity = FakeLightEntity
     components_system_health.SystemHealthRegistration = FakeSystemHealthRegistration
     components_sensor.SensorEntity = FakeSensorEntity
     components_switch.SwitchEntity = FakeSwitchEntity
@@ -198,6 +214,7 @@ def _install_homeassistant_stubs() -> None:
     helpers.typing = helpers_typing
     helpers.config_validation = helpers_cv
     components.diagnostics = components_diagnostics
+    components.light = components_light
     components.sensor = components_sensor
     components.system_health = components_system_health
     components.switch = components_switch
@@ -208,6 +225,7 @@ def _install_homeassistant_stubs() -> None:
     sys.modules["homeassistant.helpers.discovery"] = helpers_discovery
     sys.modules["homeassistant.components"] = components
     sys.modules["homeassistant.components.diagnostics"] = components_diagnostics
+    sys.modules["homeassistant.components.light"] = components_light
     sys.modules["homeassistant.components.sensor"] = components_sensor
     sys.modules["homeassistant.components.system_health"] = components_system_health
     sys.modules["homeassistant.components.switch"] = components_switch

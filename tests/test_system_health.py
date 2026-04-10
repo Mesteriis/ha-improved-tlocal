@@ -65,7 +65,7 @@ def test_system_health_info_summarizes_domain_state(hass) -> None:
     assert info["Inventory Devices"] == 1
     assert info["Matched Devices"] == 1
     assert info["Network Endpoints"] == 1
-    assert info["Supported Templates"] == 2
+    assert info["Supported Templates"] == 3
 
 
 def test_system_health_registers_callback() -> None:

@@ -10,7 +10,12 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
-from ..const import DEFAULT_CLOUD_SNAPSHOT_FILES, TEMPLATE_SMART_PLUG_BASIC, TEMPLATE_SMART_PLUG_POWER
+from ..const import (
+    DEFAULT_CLOUD_SNAPSHOT_FILES,
+    TEMPLATE_SMART_LIGHT_RGBCW,
+    TEMPLATE_SMART_PLUG_BASIC,
+    TEMPLATE_SMART_PLUG_POWER,
+)
 from ..models import InventoryDevice
 
 
@@ -100,13 +105,14 @@ def _infer_template_candidates(raw: dict[str, Any]) -> list[str]:
         for item in mapping.values()
         if isinstance(item, dict) and item.get("code")
     }
-    if "switch_1" not in codes:
-        return []
-
     templates: list[str] = []
-    if codes.intersection({"cur_power", "cur_current", "cur_voltage", "add_ele"}):
-        templates.append(TEMPLATE_SMART_PLUG_POWER)
-    templates.append(TEMPLATE_SMART_PLUG_BASIC)
+    if "switch_1" in codes:
+        if codes.intersection({"cur_power", "cur_current", "cur_voltage", "add_ele"}):
+            templates.append(TEMPLATE_SMART_PLUG_POWER)
+        templates.append(TEMPLATE_SMART_PLUG_BASIC)
+
+    if {"switch_led", "work_mode", "bright_value_v2", "temp_value_v2", "colour_data_v2"}.issubset(codes):
+        templates.append(TEMPLATE_SMART_LIGHT_RGBCW)
     return templates
 
 

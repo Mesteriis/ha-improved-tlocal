@@ -35,3 +35,4 @@ VERIFICATION_DEGRADED = "degraded"
 
 TEMPLATE_SMART_PLUG_POWER = "smart_plug.power_monitor.v1"
 TEMPLATE_SMART_PLUG_BASIC = "smart_plug.basic.v1"
+TEMPLATE_SMART_LIGHT_RGBCW = "smart_light.rgbcw.v1"
