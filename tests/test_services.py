@@ -5,7 +5,13 @@ from __future__ import annotations
 import asyncio
 
 from custom_components.improved_tlocal import async_setup
-from custom_components.improved_tlocal.const import DATA_MANAGER, DOMAIN, SERVICE_DISCOVER_DRY_RUN
+from custom_components.improved_tlocal.const import (
+    DATA_DEVICE_PROVIDERS,
+    DATA_MANAGER,
+    DOMAIN,
+    SERVICE_DISCOVER_DRY_RUN,
+)
+from custom_components.improved_tlocal.inventory.cloud_file import CloudSnapshotInventoryProvider
 from custom_components.improved_tlocal.manager import ImprovedTLocalManager
 
 
@@ -14,12 +20,15 @@ def test_async_setup_registers_manager_and_service_once(hass) -> None:
     assert asyncio.run(async_setup(hass, {})) is True
     assert DOMAIN in hass.data
     assert isinstance(hass.data[DOMAIN][DATA_MANAGER], ImprovedTLocalManager)
+    assert len(hass.data[DOMAIN][DATA_DEVICE_PROVIDERS]) == 1
+    assert isinstance(hass.data[DOMAIN][DATA_DEVICE_PROVIDERS][0], CloudSnapshotInventoryProvider)
 
     service_entry = hass.services.registered[(DOMAIN, SERVICE_DISCOVER_DRY_RUN)]
     assert service_entry["supports_response"] == "only"
 
     asyncio.run(async_setup(hass, {}))
     assert len(hass.services.registered) == 1
+    assert len(hass.data[DOMAIN][DATA_DEVICE_PROVIDERS]) == 1
 
 
 def test_service_handler_returns_manager_report(hass) -> None:

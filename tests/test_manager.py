@@ -68,6 +68,10 @@ def test_discover_dry_run_builds_explainable_results(hass) -> None:
 
     assert report["meta"]["device_provider_count"] == 1
     assert report["meta"]["endpoint_provider_count"] == 1
+    assert report["meta"]["inventory_device_count"] == 4
+    assert report["meta"]["network_endpoint_count"] == 5
+    assert report["meta"]["templated_device_count"] == 0
+    assert report["meta"]["supported_power_plug_count"] == 0
     assert results["dev-1"]["status"] == "matched"
     assert results["dev-1"]["verification_level"] == "strongly_verified"
     assert results["dev-2"]["status"] == "tentative"
@@ -105,5 +109,6 @@ def test_discover_dry_run_scans_networks_when_requested(hass, monkeypatch) -> No
 
     assert calls == [{"networks": ["192.168.50"], "ports": [6668], "timeout": 0.35}]
     assert report["meta"]["lan_scan_enabled"] is True
+    assert report["meta"]["network_endpoint_count"] == 1
     assert report["network_endpoints"][0]["ip"] == "192.168.50.10"
     assert report["unmatched_device_ids"] == ["dev-5"]

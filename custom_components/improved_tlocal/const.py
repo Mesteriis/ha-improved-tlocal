@@ -19,6 +19,11 @@ SERVICE_DISCOVER_DRY_RUN = "discover_dry_run"
 DEFAULT_SCAN_PORTS: tuple[int, ...] = (6668, 6669)
 DEFAULT_SCAN_TIMEOUT = 0.35
 DEFAULT_SCAN_MAX_CONCURRENCY = 256
+DEFAULT_CLOUD_SNAPSHOT_FILES: tuple[str, ...] = (
+    "devices_cloud_live.json",
+    "devices_cloud.json",
+    "devices.json",
+)
 
 VERIFICATION_UNVERIFIED = "unverified"
 VERIFICATION_WEAK = "weakly_verified"

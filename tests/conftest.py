@@ -6,6 +6,7 @@ import sys
 import types
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import mkdtemp
 from typing import Any
 
 import pytest
@@ -76,12 +77,24 @@ class FakeServiceRegistry:
         }
 
 
+class FakeConfig:
+    """Small Home Assistant config helper with a path() method."""
+
+    def __init__(self) -> None:
+        self.base_path = Path(mkdtemp(prefix="improved_tlocal_tests_"))
+
+    def path(self, *parts: str) -> str:
+        """Resolve a path below the temporary config root."""
+        return str(self.base_path.joinpath(*parts))
+
+
 class FakeHass:
     """Small Home Assistant stand-in for unit tests."""
 
     def __init__(self) -> None:
         self.data: dict[str, Any] = {}
         self.services = FakeServiceRegistry()
+        self.config = FakeConfig()
 
 
 def _install_homeassistant_stubs() -> None:

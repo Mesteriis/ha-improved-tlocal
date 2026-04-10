@@ -102,6 +102,12 @@ class ImprovedTLocalManager:
             meta={
                 "device_provider_count": len(self._device_providers),
                 "endpoint_provider_count": len(self._endpoint_providers),
+                "inventory_device_count": len(devices),
+                "network_endpoint_count": len(endpoints),
+                "templated_device_count": sum(bool(device.template_candidates) for device in devices),
+                "supported_power_plug_count": sum(
+                    "smart_plug.power_monitor.v1" in device.template_candidates for device in devices
+                ),
                 "lan_scan_enabled": options.include_lan_scan,
                 "lan_scan_networks": options.networks,
                 "lan_scan_ports": options.ports,
