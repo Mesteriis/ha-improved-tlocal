@@ -12,6 +12,7 @@ from custom_components.improved_tlocal.const import (
     SERVICE_BIND_DEVICE,
     SERVICE_DISCOVER_DRY_RUN,
     SERVICE_EXPORT_DIAGNOSTICS,
+    SERVICE_SYNC_RUNTIME,
 )
 from custom_components.improved_tlocal.inventory.cloud_file import CloudSnapshotInventoryProvider
 from custom_components.improved_tlocal.manager import ImprovedTLocalManager
@@ -31,9 +32,11 @@ def test_async_setup_registers_manager_and_service_once(hass) -> None:
     assert bind_entry["supports_response"] == "only"
     diagnostics_entry = hass.services.registered[(DOMAIN, SERVICE_EXPORT_DIAGNOSTICS)]
     assert diagnostics_entry["supports_response"] == "only"
+    sync_entry = hass.services.registered[(DOMAIN, SERVICE_SYNC_RUNTIME)]
+    assert sync_entry["supports_response"] == "only"
 
     asyncio.run(async_setup(hass, {}))
-    assert len(hass.services.registered) == 3
+    assert len(hass.services.registered) == 4
     assert len(hass.data[DOMAIN][DATA_DEVICE_PROVIDERS]) == 1
 
 
@@ -76,3 +79,18 @@ def test_export_diagnostics_service_returns_payload(hass) -> None:
 
     assert result["loaded"] is True
     assert result["binding_history"] == {}
+
+
+def test_sync_runtime_service_returns_manager_summary(hass) -> None:
+    """Runtime sync service should proxy to the manager summary."""
+    asyncio.run(async_setup(hass, {}))
+    manager = hass.data[DOMAIN][DATA_MANAGER]
+
+    async def fake_sync():
+        return {"ok": True, "runtime_device_count": 1, "registered_entity_count": 3}
+
+    manager.async_sync_runtime_entities = fake_sync
+    service_entry = hass.services.registered[(DOMAIN, SERVICE_SYNC_RUNTIME)]
+    result = asyncio.run(service_entry["handler"](type("Call", (), {"data": {}})()))
+
+    assert result == {"ok": True, "runtime_device_count": 1, "registered_entity_count": 3}

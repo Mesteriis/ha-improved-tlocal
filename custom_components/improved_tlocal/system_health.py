@@ -42,4 +42,6 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
         "Unmatched Devices": summary.get("unmatched_device_count", 0),
         "Network Endpoints": summary.get("last_network_endpoint_count", 0),
         "Supported Templates": summary.get("supported_template_count", 0),
+        "Runtime Devices": summary.get("runtime_device_count", 0),
+        "Runtime Entities": summary.get("runtime_entity_count", 0),
     }

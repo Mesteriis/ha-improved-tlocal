@@ -256,6 +256,14 @@ class ImprovedTLocalManager:
         """Register one runtime platform callback."""
         await self.runtime_registry.async_register_platform(platform, async_add_entities)
 
+    async def async_sync_runtime_entities(self) -> dict[str, Any]:
+        """Synchronize runtime entities for all supported bound devices."""
+        await self.runtime_registry.async_sync_entities()
+        return {
+            "ok": True,
+            **self.runtime_registry.summary(),
+        }
+
     @property
     def _device_providers(self) -> list[DeviceInventoryProvider]:
         """Return registered device providers."""

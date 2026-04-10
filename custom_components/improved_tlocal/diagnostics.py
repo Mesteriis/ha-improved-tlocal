@@ -76,11 +76,18 @@ async def async_get_domain_diagnostics(
             "unmatched_device_count": _count_report_status(report, "unmatched"),
             "last_network_endpoint_count": _report_meta(report, "network_endpoints", expect_len=True),
             "supported_template_count": len(list_templates()),
+            "runtime_device_count": manager.runtime_registry.summary().get("runtime_device_count", 0)
+            if manager is not None
+            else 0,
+            "runtime_entity_count": manager.runtime_registry.summary().get("registered_entity_count", 0)
+            if manager is not None
+            else 0,
         },
         "bindings": bindings if isinstance(bindings, dict) else {},
         "binding_history": history if isinstance(history, dict) else {},
         "last_discovery_report": report if isinstance(report, dict) else None,
         "templates": [template.to_dict() for template in list_templates()],
+        "runtime": manager.runtime_registry.summary() if manager is not None else {},
     }
     return async_redact_data(diagnostics, REDACT_KEYS)
 

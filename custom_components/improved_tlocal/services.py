@@ -22,6 +22,7 @@ from .const import (
     SERVICE_BIND_DEVICE,
     SERVICE_DISCOVER_DRY_RUN,
     SERVICE_EXPORT_DIAGNOSTICS,
+    SERVICE_SYNC_RUNTIME,
 )
 from .diagnostics import async_get_domain_diagnostics
 
@@ -55,6 +56,8 @@ EXPORT_DIAGNOSTICS_SCHEMA = vol.Schema(
     }
 )
 
+SYNC_RUNTIME_SCHEMA = vol.Schema({})
+
 
 async def async_setup_services(hass: HomeAssistant) -> None:
     """Register ImprovedTLocal services once."""
@@ -86,6 +89,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             include_history=bool(call.data.get("include_history", True)),
         )
 
+    async def async_handle_sync_runtime(call: ServiceCall) -> dict[str, Any]:
+        manager = hass.data[DOMAIN][DATA_MANAGER]
+        return await manager.async_sync_runtime_entities()
+
     supports_only = getattr(SupportsResponse, "ONLY", None)
     _async_register(
         SERVICE_DISCOVER_DRY_RUN,
@@ -103,6 +110,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_EXPORT_DIAGNOSTICS,
         async_handle_export_diagnostics,
         schema=EXPORT_DIAGNOSTICS_SCHEMA,
+        supports_response=supports_only,
+    )
+    _async_register(
+        SERVICE_SYNC_RUNTIME,
+        async_handle_sync_runtime,
+        schema=SYNC_RUNTIME_SCHEMA,
         supports_response=supports_only,
     )
     domain_data[DATA_SERVICES_REGISTERED] = True

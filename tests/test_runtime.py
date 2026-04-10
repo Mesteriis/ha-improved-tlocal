@@ -110,3 +110,7 @@ def test_runtime_registry_creates_switch_and_sensor_entities_for_bound_plug(hass
 
     asyncio.run(switch.async_turn_on())
     assert switch.is_on is True
+    summary = asyncio.run(manager.async_sync_runtime_entities())
+    assert summary["ok"] is True
+    assert summary["runtime_device_count"] == 1
+    assert summary["registered_entity_count"] == 3

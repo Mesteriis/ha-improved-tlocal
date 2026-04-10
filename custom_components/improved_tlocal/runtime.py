@@ -73,6 +73,16 @@ class PlugRuntimeRegistry:
 
             await self._async_add_runtime_entities(runtime)
 
+    def summary(self) -> dict[str, Any]:
+        """Return a compact runtime summary."""
+        return {
+            "runtime_device_count": len(self._runtimes),
+            "loaded_platform_count": len(self._platform_adders),
+            "loaded_platforms": sorted(self._platform_adders),
+            "registered_entity_count": len(self._added_unique_ids),
+            "registered_entity_ids": sorted(self._added_unique_ids),
+        }
+
     async def _async_add_runtime_entities(self, runtime: "BoundPlugRuntime") -> None:
         """Add missing entities for one runtime to registered platforms."""
         from .sensor import build_runtime_sensor_entities
