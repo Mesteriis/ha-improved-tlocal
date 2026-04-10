@@ -11,6 +11,7 @@ from custom_components.improved_tlocal.const import (
     DOMAIN,
     SERVICE_BIND_DEVICE,
     SERVICE_DISCOVER_DRY_RUN,
+    SERVICE_EXPORT_DIAGNOSTICS,
 )
 from custom_components.improved_tlocal.inventory.cloud_file import CloudSnapshotInventoryProvider
 from custom_components.improved_tlocal.manager import ImprovedTLocalManager
@@ -28,9 +29,11 @@ def test_async_setup_registers_manager_and_service_once(hass) -> None:
     assert service_entry["supports_response"] == "only"
     bind_entry = hass.services.registered[(DOMAIN, SERVICE_BIND_DEVICE)]
     assert bind_entry["supports_response"] == "only"
+    diagnostics_entry = hass.services.registered[(DOMAIN, SERVICE_EXPORT_DIAGNOSTICS)]
+    assert diagnostics_entry["supports_response"] == "only"
 
     asyncio.run(async_setup(hass, {}))
-    assert len(hass.services.registered) == 2
+    assert len(hass.services.registered) == 3
     assert len(hass.data[DOMAIN][DATA_DEVICE_PROVIDERS]) == 1
 
 
@@ -63,3 +66,13 @@ def test_bind_service_handler_returns_manager_result(hass) -> None:
     result = asyncio.run(service_entry["handler"](type("Call", (), {"data": {"device_id": "plug-1"}})()))
 
     assert result == {"ok": True, "action": "created", "options": {"device_id": "plug-1"}}
+
+
+def test_export_diagnostics_service_returns_payload(hass) -> None:
+    """Diagnostics service should return a structured payload."""
+    asyncio.run(async_setup(hass, {}))
+    service_entry = hass.services.registered[(DOMAIN, SERVICE_EXPORT_DIAGNOSTICS)]
+    result = asyncio.run(service_entry["handler"](type("Call", (), {"data": {"include_history": False}})()))
+
+    assert result["loaded"] is True
+    assert result["binding_history"] == {}

@@ -16,6 +16,7 @@ STORE_KEY = "improved_tlocal.storage"
 
 SERVICE_DISCOVER_DRY_RUN = "discover_dry_run"
 SERVICE_BIND_DEVICE = "bind_device"
+SERVICE_EXPORT_DIAGNOSTICS = "export_diagnostics"
 
 DEFAULT_SCAN_PORTS: tuple[int, ...] = (6668, 6669)
 DEFAULT_SCAN_TIMEOUT = 0.35

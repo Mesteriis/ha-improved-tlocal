@@ -54,6 +54,18 @@ class FakeSupportsResponse:
     ONLY = "only"
 
 
+class FakeSystemHealthRegistration:
+    """Capture system health registrations for assertions."""
+
+    def __init__(self) -> None:
+        self.domain: str | None = None
+        self.callback: Any | None = None
+
+    def async_register_info(self, callback: Any, manage_url: str | None = None) -> None:
+        """Store the registered callback."""
+        self.callback = callback
+
+
 class FakeServiceRegistry:
     """Capture service registrations for assertions."""
 
@@ -105,6 +117,9 @@ def _install_homeassistant_stubs() -> None:
     homeassistant = types.ModuleType("homeassistant")
     core = types.ModuleType("homeassistant.core")
     helpers = types.ModuleType("homeassistant.helpers")
+    components = types.ModuleType("homeassistant.components")
+    components_diagnostics = types.ModuleType("homeassistant.components.diagnostics")
+    components_system_health = types.ModuleType("homeassistant.components.system_health")
     helpers_storage = types.ModuleType("homeassistant.helpers.storage")
     helpers_typing = types.ModuleType("homeassistant.helpers.typing")
     helpers_cv = types.ModuleType("homeassistant.helpers.config_validation")
@@ -112,6 +127,26 @@ def _install_homeassistant_stubs() -> None:
     core.HomeAssistant = FakeHass
     core.ServiceCall = FakeServiceCall
     core.SupportsResponse = FakeSupportsResponse
+    core.callback = lambda func: func
+
+    def _async_redact_data(data: Any, to_redact: set[str] | tuple[str, ...] | list[str]) -> Any:
+        redact_keys = set(to_redact)
+
+        def _redact(value: Any) -> Any:
+            if isinstance(value, dict):
+                return {
+                    key: "**REDACTED**" if key in redact_keys else _redact(item)
+                    for key, item in value.items()
+                }
+            if isinstance(value, list):
+                return [_redact(item) for item in value]
+            return value
+
+        return _redact(data)
+
+    components_diagnostics.async_redact_data = _async_redact_data
+    components_system_health.SystemHealthRegistration = FakeSystemHealthRegistration
+
     helpers_storage.Store = FakeStore
     helpers_typing.ConfigType = dict[str, Any]
     helpers_cv.string = vol.Coerce(str)
@@ -119,13 +154,19 @@ def _install_homeassistant_stubs() -> None:
 
     homeassistant.core = core
     homeassistant.helpers = helpers
+    homeassistant.components = components
     helpers.storage = helpers_storage
     helpers.typing = helpers_typing
     helpers.config_validation = helpers_cv
+    components.diagnostics = components_diagnostics
+    components.system_health = components_system_health
 
     sys.modules["homeassistant"] = homeassistant
     sys.modules["homeassistant.core"] = core
     sys.modules["homeassistant.helpers"] = helpers
+    sys.modules["homeassistant.components"] = components
+    sys.modules["homeassistant.components.diagnostics"] = components_diagnostics
+    sys.modules["homeassistant.components.system_health"] = components_system_health
     sys.modules["homeassistant.helpers.storage"] = helpers_storage
     sys.modules["homeassistant.helpers.typing"] = helpers_typing
     sys.modules["homeassistant.helpers.config_validation"] = helpers_cv

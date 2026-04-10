@@ -21,7 +21,9 @@ from .const import (
     DOMAIN,
     SERVICE_BIND_DEVICE,
     SERVICE_DISCOVER_DRY_RUN,
+    SERVICE_EXPORT_DIAGNOSTICS,
 )
+from .diagnostics import async_get_domain_diagnostics
 
 DISCOVER_DRY_RUN_SCHEMA = vol.Schema(
     {
@@ -43,6 +45,13 @@ BIND_DEVICE_SCHEMA = vol.Schema(
         vol.Optional("protocol_version"): cv.string,
         vol.Optional("template_id"): cv.string,
         vol.Optional("allow_tentative", default=False): cv.boolean,
+    }
+)
+
+EXPORT_DIAGNOSTICS_SCHEMA = vol.Schema(
+    {
+        vol.Optional("device_id"): cv.string,
+        vol.Optional("include_history", default=True): cv.boolean,
     }
 )
 
@@ -70,6 +79,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         manager = hass.data[DOMAIN][DATA_MANAGER]
         return await manager.async_bind_device(dict(call.data))
 
+    async def async_handle_export_diagnostics(call: ServiceCall) -> dict[str, Any]:
+        return await async_get_domain_diagnostics(
+            hass,
+            device_id=call.data.get("device_id"),
+            include_history=bool(call.data.get("include_history", True)),
+        )
+
     supports_only = getattr(SupportsResponse, "ONLY", None)
     _async_register(
         SERVICE_DISCOVER_DRY_RUN,
@@ -81,6 +97,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_BIND_DEVICE,
         async_handle_bind_device,
         schema=BIND_DEVICE_SCHEMA,
+        supports_response=supports_only,
+    )
+    _async_register(
+        SERVICE_EXPORT_DIAGNOSTICS,
+        async_handle_export_diagnostics,
+        schema=EXPORT_DIAGNOSTICS_SCHEMA,
         supports_response=supports_only,
     )
     domain_data[DATA_SERVICES_REGISTERED] = True
