@@ -10,11 +10,8 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
-from ..const import DEFAULT_CLOUD_SNAPSHOT_FILES
+from ..const import DEFAULT_CLOUD_SNAPSHOT_FILES, TEMPLATE_SMART_PLUG_BASIC, TEMPLATE_SMART_PLUG_POWER
 from ..models import InventoryDevice
-
-SMART_PLUG_POWER_TEMPLATE = "smart_plug.power_monitor.v1"
-SMART_PLUG_BASIC_TEMPLATE = "smart_plug.basic.v1"
 
 
 class CloudSnapshotInventoryProvider:
@@ -108,8 +105,8 @@ def _infer_template_candidates(raw: dict[str, Any]) -> list[str]:
 
     templates: list[str] = []
     if codes.intersection({"cur_power", "cur_current", "cur_voltage", "add_ele"}):
-        templates.append(SMART_PLUG_POWER_TEMPLATE)
-    templates.append(SMART_PLUG_BASIC_TEMPLATE)
+        templates.append(TEMPLATE_SMART_PLUG_POWER)
+    templates.append(TEMPLATE_SMART_PLUG_BASIC)
     return templates
 
 

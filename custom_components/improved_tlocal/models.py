@@ -183,6 +183,22 @@ class DiscoveryReport:
         }
 
 
+@dataclass(slots=True)
+class DeviceTemplate:
+    """Template metadata for one supported device family."""
+
+    template_id: str
+    family: str
+    description: str
+    required_dp_codes: list[str] = field(default_factory=list)
+    optional_dp_codes: list[str] = field(default_factory=list)
+    platforms: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the template descriptor to a compact dictionary."""
+        return _compact_dict(asdict(self))
+
+
 def verification_from_score(score: float, *, strong_signal: bool = False) -> VerificationLevel:
     """Map a score and signal strength to a verification level."""
     if strong_signal and score >= 0.9:

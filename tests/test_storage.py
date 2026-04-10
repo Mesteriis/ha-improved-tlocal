@@ -39,3 +39,14 @@ def test_store_round_trip_bindings_and_report(hass) -> None:
     assert loaded_bindings["dev-1"].verification_level == "strongly_verified"
     assert loaded_report is not None
     assert loaded_report["meta"]["source"] == "test"
+
+
+def test_store_keeps_binding_history(hass) -> None:
+    """Binding history should persist independently from active bindings."""
+    store = ImprovedTLocalStore(hass)
+
+    asyncio.run(store.async_append_binding_history("dev-1", {"action": "created"}))
+    asyncio.run(store.async_append_binding_history("dev-1", {"action": "rebound"}))
+    history = asyncio.run(store.async_load_binding_history("dev-1"))
+
+    assert history == [{"action": "created"}, {"action": "rebound"}]

@@ -27,6 +27,7 @@ from .models import (
     verification_from_score,
 )
 from .storage import ImprovedTLocalStore
+from .templates import select_template_for_device, summarize_template
 
 
 class DeviceInventoryProvider(Protocol):
@@ -51,6 +52,18 @@ class DryRunOptions:
     ports: list[int]
     timeout: float
     include_lan_scan: bool
+
+
+@dataclass(slots=True)
+class BindOptions:
+    """Normalized bind service options."""
+
+    device_id: str
+    candidate_ip: str | None
+    candidate_port: int | None
+    bound_protocol_version: str | None
+    template_id: str | None
+    allow_tentative: bool
 
 
 class ImprovedTLocalManager:
@@ -116,6 +129,126 @@ class ImprovedTLocalManager:
         await self.storage.async_save_discovery_report(report)
         return report.to_dict()
 
+    def normalize_bind_options(self, raw: dict[str, Any]) -> BindOptions:
+        """Normalize raw binding options."""
+        device_id = str(raw.get("device_id") or "").strip()
+        return BindOptions(
+            device_id=device_id,
+            candidate_ip=_normalize_optional_str(raw.get("ip")),
+            candidate_port=int(raw["port"]) if raw.get("port") is not None else None,
+            bound_protocol_version=_normalize_optional_str(raw.get("protocol_version")),
+            template_id=_normalize_optional_str(raw.get("template_id")),
+            allow_tentative=bool(raw.get("allow_tentative", False)),
+        )
+
+    async def async_bind_device(self, raw_options: dict[str, Any]) -> dict[str, Any]:
+        """Apply one binding from an existing dry-run report or explicit endpoint."""
+        options = self.normalize_bind_options(raw_options)
+        if not options.device_id:
+            return {
+                "ok": False,
+                "error_code": "missing_device_id",
+                "message": "device_id is required",
+            }
+
+        report = await self.storage.async_load_discovery_report()
+        bindings = await self.storage.async_load_bindings()
+        current_binding = bindings.get(options.device_id)
+
+        device = await self._async_get_inventory_device(options.device_id, report)
+        match_result = _find_report_match(report, options.device_id) if report else None
+
+        if options.candidate_ip is None:
+            resolution = _resolve_match_for_apply(match_result, allow_tentative=options.allow_tentative)
+            if resolution["error_code"] is not None:
+                return {
+                    "ok": False,
+                    "device_id": options.device_id,
+                    "error_code": resolution["error_code"],
+                    "message": resolution["message"],
+                    "match_result": match_result,
+                }
+            candidate_ip = resolution["candidate_ip"]
+            candidate_port = resolution["candidate_port"]
+            verification_level = str(match_result.get("verification_level") or "unverified") if match_result else "unverified"
+            confidence = float(match_result.get("score") or 0.0) if match_result else 0.0
+            verification_method = "dry_run_report"
+        else:
+            candidate_ip = options.candidate_ip
+            candidate_port = options.candidate_port or 6668
+            verification_level = "unverified"
+            confidence = 0.0
+            verification_method = "manual_bind"
+
+        if not candidate_ip:
+            return {
+                "ok": False,
+                "device_id": options.device_id,
+                "error_code": "missing_candidate_ip",
+                "message": "No candidate IP was available for binding",
+            }
+
+        template = None
+        if device is not None:
+            template = select_template_for_device(device, preferred_template_id=options.template_id)
+        elif options.template_id:
+            template = None
+
+        if template is None and current_binding and current_binding.template_id and options.template_id is None:
+            selected_template_id = current_binding.template_id
+        elif template is None and options.template_id:
+            return {
+                "ok": False,
+                "device_id": options.device_id,
+                "error_code": "unsupported_template",
+                "message": f"Template {options.template_id} is not compatible with the selected device",
+            }
+        elif template is None:
+            return {
+                "ok": False,
+                "device_id": options.device_id,
+                "error_code": "no_supported_template",
+                "message": "No supported template is available for this device",
+            }
+        else:
+            selected_template_id = template.template_id
+
+        next_binding = BindingRecord(
+            device_id=options.device_id,
+            bound_ip=candidate_ip,
+            bound_port=candidate_port or 6668,
+            bound_protocol_version=options.bound_protocol_version or _extract_endpoint_protocol_version(report, candidate_ip, candidate_port),
+            verification_level=verification_level,
+            template_id=selected_template_id,
+            confidence=confidence,
+            verified_at=utcnow_iso(),
+            verification_method=verification_method,
+            failure_streak=0,
+            mac=device.mac if device else (current_binding.mac if current_binding else None),
+        )
+
+        action = _describe_binding_action(current_binding, next_binding)
+        bindings[options.device_id] = next_binding
+        await self.storage.async_save_bindings(bindings)
+        await self.storage.async_append_binding_history(
+            options.device_id,
+            {
+                "changed_at": utcnow_iso(),
+                "action": action,
+                "source": verification_method,
+                "previous_binding": current_binding.to_dict() if current_binding else None,
+                "next_binding": next_binding.to_dict(),
+            },
+        )
+        return {
+            "ok": True,
+            "device_id": options.device_id,
+            "action": action,
+            "binding": next_binding.to_dict(),
+            "previous_binding": current_binding.to_dict() if current_binding else None,
+            "template": summarize_template(template),
+        }
+
     @property
     def _device_providers(self) -> list[DeviceInventoryProvider]:
         """Return registered device providers."""
@@ -140,6 +273,23 @@ class ImprovedTLocalManager:
             endpoints.extend(await provider.async_fetch_endpoints(self.hass))
         return endpoints
 
+    async def _async_get_inventory_device(
+        self,
+        device_id: str,
+        report: dict[str, Any] | None = None,
+    ) -> InventoryDevice | None:
+        """Resolve one inventory device from the report or live providers."""
+        if report:
+            device = _inventory_device_from_report(report, device_id)
+            if device is not None:
+                return device
+
+        devices = await self._async_collect_devices()
+        for device in devices:
+            if device.device_id == device_id:
+                return device
+        return None
+
 
 def _normalize_str_list(value: Any) -> list[str]:
     """Normalize one-or-many string input into a list."""
@@ -161,6 +311,14 @@ def _normalize_int_list(value: Any) -> list[int]:
     if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         return [int(item) for item in value]
     return [int(value)]
+
+
+def _normalize_optional_str(value: Any) -> str | None:
+    """Normalize an optional string-ish value."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _dedupe_devices(devices: Sequence[InventoryDevice]) -> list[InventoryDevice]:
@@ -314,3 +472,122 @@ def _build_match_results(
 
     results.sort(key=lambda item: item.device_id)
     return results
+
+
+def _find_report_match(report: dict[str, Any] | None, device_id: str) -> dict[str, Any] | None:
+    """Return one serialized match result from the report."""
+    if not isinstance(report, dict):
+        return None
+    for result in report.get("match_results", []):
+        if isinstance(result, dict) and result.get("device_id") == device_id:
+            return result
+    return None
+
+
+def _inventory_device_from_report(report: dict[str, Any], device_id: str) -> InventoryDevice | None:
+    """Reconstruct one inventory device from a serialized report entry."""
+    for raw in report.get("inventory_devices", []):
+        if not isinstance(raw, dict) or raw.get("device_id") != device_id:
+            continue
+        return InventoryDevice(
+            device_id=str(raw.get("device_id")),
+            name=str(raw.get("name") or device_id),
+            category=_normalize_optional_str(raw.get("category")),
+            product_id=_normalize_optional_str(raw.get("product_id")),
+            model=_normalize_optional_str(raw.get("model")),
+            model_id=_normalize_optional_str(raw.get("model_id")),
+            uuid=_normalize_optional_str(raw.get("uuid")),
+            mac=_normalize_optional_str(raw.get("mac")),
+            parent_device_id=_normalize_optional_str(raw.get("parent_device_id")),
+            node_id=_normalize_optional_str(raw.get("node_id")),
+            is_subdevice=bool(raw.get("is_subdevice", False)),
+            transport_scope=_normalize_optional_str(raw.get("transport_scope")) or "direct",
+            power_profile=_normalize_optional_str(raw.get("power_profile")),
+            local_key_ref=_normalize_optional_str(raw.get("local_key_ref")),
+            cloud_online=raw.get("cloud_online"),
+            dp_schema=raw.get("dp_schema") if isinstance(raw.get("dp_schema"), dict) else None,
+            template_candidates=[str(item) for item in raw.get("template_candidates", []) if str(item).strip()],
+        )
+    return None
+
+
+def _resolve_match_for_apply(match_result: dict[str, Any] | None, *, allow_tentative: bool) -> dict[str, Any]:
+    """Resolve whether a report match can be safely applied."""
+    if not isinstance(match_result, dict):
+        return {
+            "candidate_ip": None,
+            "candidate_port": None,
+            "error_code": "missing_match_result",
+            "message": "Run discover_dry_run first or provide an explicit IP",
+        }
+
+    status = str(match_result.get("status") or "")
+    if status == "matched":
+        return {
+            "candidate_ip": match_result.get("candidate_ip"),
+            "candidate_port": match_result.get("candidate_port"),
+            "error_code": None,
+            "message": "Match is safe to apply",
+        }
+    if status == "tentative":
+        if allow_tentative:
+            return {
+                "candidate_ip": match_result.get("candidate_ip"),
+                "candidate_port": match_result.get("candidate_port"),
+                "error_code": None,
+                "message": "Tentative match accepted by caller",
+            }
+        return {
+            "candidate_ip": None,
+            "candidate_port": None,
+            "error_code": "tentative_requires_confirmation",
+            "message": "Tentative match requires allow_tentative=true",
+        }
+    if status == "conflict":
+        return {
+            "candidate_ip": None,
+            "candidate_port": None,
+            "error_code": "conflict",
+            "message": "The last dry-run report has conflicting candidates for this device",
+        }
+    if status == "unmatched":
+        return {
+            "candidate_ip": None,
+            "candidate_port": None,
+            "error_code": "unmatched",
+            "message": "The last dry-run report could not match this device",
+        }
+    return {
+        "candidate_ip": None,
+        "candidate_port": None,
+        "error_code": "unknown_match_state",
+        "message": "The last dry-run report contains an unsupported match state",
+    }
+
+
+def _extract_endpoint_protocol_version(
+    report: dict[str, Any] | None,
+    ip: str | None,
+    port: int | None,
+) -> str | None:
+    """Return protocol version from a serialized endpoint when available."""
+    if not isinstance(report, dict) or not ip or port is None:
+        return None
+    for endpoint in report.get("network_endpoints", []):
+        if not isinstance(endpoint, dict):
+            continue
+        if endpoint.get("ip") == ip and int(endpoint.get("port") or 0) == port:
+            version = endpoint.get("protocol_version")
+            return str(version) if version else None
+    return None
+
+
+def _describe_binding_action(current: BindingRecord | None, new: BindingRecord) -> str:
+    """Describe whether this mutation created, updated, or rebound a binding."""
+    if current is None:
+        return "created"
+    if current.bound_ip != new.bound_ip or current.bound_port != new.bound_port:
+        return "rebound"
+    if current.template_id != new.template_id or current.bound_protocol_version != new.bound_protocol_version:
+        return "updated"
+    return "refreshed"

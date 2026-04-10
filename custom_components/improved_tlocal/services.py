@@ -15,7 +15,13 @@ except ImportError:  # pragma: no cover - compatibility fallback for tests
     ServiceCall = Any  # type: ignore[assignment]
     SupportsResponse = None  # type: ignore[assignment]
 
-from .const import DATA_MANAGER, DATA_SERVICES_REGISTERED, DOMAIN, SERVICE_DISCOVER_DRY_RUN
+from .const import (
+    DATA_MANAGER,
+    DATA_SERVICES_REGISTERED,
+    DOMAIN,
+    SERVICE_BIND_DEVICE,
+    SERVICE_DISCOVER_DRY_RUN,
+)
 
 DISCOVER_DRY_RUN_SCHEMA = vol.Schema(
     {
@@ -26,6 +32,17 @@ DISCOVER_DRY_RUN_SCHEMA = vol.Schema(
         ),
         vol.Optional("timeout"): vol.Coerce(float),
         vol.Optional("include_lan_scan"): cv.boolean,
+    }
+)
+
+BIND_DEVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): cv.string,
+        vol.Optional("ip"): cv.string,
+        vol.Optional("port"): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+        vol.Optional("protocol_version"): cv.string,
+        vol.Optional("template_id"): cv.string,
+        vol.Optional("allow_tentative", default=False): cv.boolean,
     }
 )
 
@@ -49,11 +66,21 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         manager = hass.data[DOMAIN][DATA_MANAGER]
         return await manager.async_discover_dry_run(dict(call.data))
 
+    async def async_handle_bind_device(call: ServiceCall) -> dict[str, Any]:
+        manager = hass.data[DOMAIN][DATA_MANAGER]
+        return await manager.async_bind_device(dict(call.data))
+
     supports_only = getattr(SupportsResponse, "ONLY", None)
     _async_register(
         SERVICE_DISCOVER_DRY_RUN,
         async_handle_discover_dry_run,
         schema=DISCOVER_DRY_RUN_SCHEMA,
+        supports_response=supports_only,
+    )
+    _async_register(
+        SERVICE_BIND_DEVICE,
+        async_handle_bind_device,
+        schema=BIND_DEVICE_SCHEMA,
         supports_response=supports_only,
     )
     domain_data[DATA_SERVICES_REGISTERED] = True

@@ -15,6 +15,7 @@ def _default_payload() -> dict[str, Any]:
     """Return the canonical store payload."""
     return {
         "bindings": {},
+        "binding_history": {},
         "ignored_devices": [],
         "template_overrides": {},
         "last_discovery_report": None,
@@ -70,6 +71,29 @@ class ImprovedTLocalStore:
         payload = await self.async_load()
         payload["bindings"] = {device_id: binding.to_dict() for device_id, binding in bindings.items()}
         await self.async_save(payload)
+
+    async def async_append_binding_history(self, device_id: str, event: dict[str, Any]) -> None:
+        """Append one binding mutation event to per-device history."""
+        payload = await self.async_load()
+        history = payload.get("binding_history")
+        if not isinstance(history, dict):
+            history = {}
+        events = history.get(device_id)
+        if not isinstance(events, list):
+            events = []
+        events.append(event)
+        history[device_id] = events
+        payload["binding_history"] = history
+        await self.async_save(payload)
+
+    async def async_load_binding_history(self, device_id: str) -> list[dict[str, Any]]:
+        """Load per-device binding history events."""
+        payload = await self.async_load()
+        history = payload.get("binding_history", {})
+        if not isinstance(history, dict):
+            return []
+        events = history.get(device_id, [])
+        return events if isinstance(events, list) else []
 
     async def async_save_discovery_report(self, report: DiscoveryReport) -> None:
         """Persist the latest dry-run discovery report."""

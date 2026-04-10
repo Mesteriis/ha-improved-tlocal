@@ -5,9 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 
+from custom_components.improved_tlocal.const import TEMPLATE_SMART_PLUG_BASIC, TEMPLATE_SMART_PLUG_POWER
 from custom_components.improved_tlocal.inventory.cloud_file import (
-    SMART_PLUG_BASIC_TEMPLATE,
-    SMART_PLUG_POWER_TEMPLATE,
     CloudSnapshotInventoryProvider,
 )
 
@@ -55,7 +54,7 @@ def test_cloud_snapshot_provider_normalizes_power_plug(tmp_path, hass) -> None:
     assert device.model_id == "AT2PL"
     assert device.mac == "FC3CD74232F0"
     assert device.cloud_online is True
-    assert device.template_candidates == [SMART_PLUG_POWER_TEMPLATE, SMART_PLUG_BASIC_TEMPLATE]
+    assert device.template_candidates == [TEMPLATE_SMART_PLUG_POWER, TEMPLATE_SMART_PLUG_BASIC]
     assert set(device.dp_schema) == {"1", "18", "19"}
 
 
